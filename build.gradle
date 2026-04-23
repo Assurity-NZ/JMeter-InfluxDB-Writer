@@ -6,7 +6,7 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
-version = project.hasProperty('projectVersion') ? project.projectVersion : '1.2.1'
+version = project.hasProperty('projectVersion') ? project.projectVersion : '2.0.0' // start with v2.0.0 to distinguish with other public forks
 def title = 'JMeterInfluxDBListener'
 
 jar {
