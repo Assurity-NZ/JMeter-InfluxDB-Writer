@@ -1,0 +1,45 @@
+---
+
+name: Build Release
+
+on:
+  push:
+    branches: [ 'master' ]
+    paths-ignore:
+      - 'README.md'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Bump and push version tag
+        id: bump_version_tag
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build plugin
+        run: |
+          chmod +x gradlew
+          ./gradlew -PprojectVersion=${{ steps.bump_version_tag.outputs.new_version }} fatJar
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.bump_version_tag.outputs.new_tag }}
+          name: Release ${{ steps.bump_version_tag.outputs.new_tag }}
+          body: ${{ steps.bump_version_tag.outputs.changelog }}
+          files: build/libs/*-plugin-*.jar
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
