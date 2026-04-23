@@ -32,7 +32,7 @@ task fatJar(type: Jar) {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {
         attributes 'Implementation-Title': title,
-                   'Implementation-Version': version
+                'Implementation-Version': version
     }
     archiveBaseName = project.name + '-plugin'
     from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
