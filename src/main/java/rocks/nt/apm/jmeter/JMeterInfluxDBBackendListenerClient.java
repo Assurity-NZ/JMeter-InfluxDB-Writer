@@ -1,5 +1,6 @@
 package rocks.nt.apm.jmeter;
 
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -8,6 +9,7 @@ import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.Collections;
 
 import org.apache.jmeter.config.Arguments;
 import org.apache.jmeter.samplers.SampleResult;
@@ -15,13 +17,17 @@ import org.apache.jmeter.threads.JMeterContextService;
 import org.apache.jmeter.threads.JMeterContextService.ThreadCounts;
 import org.apache.jmeter.visualizers.backend.AbstractBackendListenerClient;
 import org.apache.jmeter.visualizers.backend.BackendListenerContext;
-import org.apache.jorphan.logging.LoggingManager;
-import org.apache.log.Logger;
+import okhttp3.OkHttpClient;
+import org.influxdb.BatchOptions;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
 import org.influxdb.dto.Point;
+import org.influxdb.dto.Query;
+import org.influxdb.dto.QueryResult;
 import org.influxdb.dto.Point.Builder;
-
+import org.influxdb.dto.Pong;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import rocks.nt.apm.jmeter.config.influxdb.InfluxDBConfig;
 import rocks.nt.apm.jmeter.config.influxdb.RequestMeasurement;
 import rocks.nt.apm.jmeter.config.influxdb.TestStartEndMeasurement;
@@ -37,7 +43,7 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
 	/**
 	 * Logger.
 	 */
-	private static final Logger LOGGER = LoggingManager.getLoggerForClass();
+	private static final Logger LOGGER = LoggerFactory.getLogger(JMeterInfluxDBBackendListenerClient.class);
 
 	/**
 	 * Parameter Keys.
@@ -48,6 +54,7 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
 	private static final String KEY_NODE_NAME = "nodeName";
 	private static final String KEY_SAMPLERS_LIST = "samplersList";
 	private static final String KEY_RECORD_SUB_SAMPLES = "recordSubSamples";
+	private static final String KEY_IS_BACKEND_LISTENER_DISABLED = "isBackendListenerDisabled";
 
 	/**
 	 * Constants.
@@ -112,37 +119,35 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
 	private boolean recordSubSamples;
 
 	/**
+	 * Indicates whether the backend listener is disabled
+	 */
+	private boolean isBackendListenerDisabled;
+	
+	/**
 	 * Processes sampler results.
 	 */
 	public void handleSampleResults(List<SampleResult> sampleResults, BackendListenerContext context) {
-		// Gather all the listeners
-		List<SampleResult> allSampleResults = new ArrayList<SampleResult>();
-		for (SampleResult sampleResult : sampleResults) {
-            allSampleResults.add(sampleResult);
+		if (isBackendListenerDisabled) {
+			LOGGER.debug("You have set parameter isBackendListenerDisabled to true. Therefore no further handling of samplers will be done!");
+		} else {
+			List<SampleResult> allSampleResults = new ArrayList<>();
 
-            if(recordSubSamples) {
-				for (SampleResult subResult : sampleResult.getSubResults()) {
-					allSampleResults.add(subResult);
+			for(SampleResult sampleResult : sampleResults) {
+				allSampleResults.add(sampleResult);
+				if (recordSubSamples) {
+					allSampleResults.addAll(Arrays.asList(sampleResult.getSubResults()));
 				}
 			}
-        }
 
-		for(SampleResult sampleResult: allSampleResults) {
-            getUserMetrics().add(sampleResult);
-
-			if ((null != regexForSamplerList && sampleResult.getSampleLabel().matches(regexForSamplerList)) || samplersToFilter.contains(sampleResult.getSampleLabel())) {
-				Point point = Point.measurement(RequestMeasurement.MEASUREMENT_NAME).time(
-						System.currentTimeMillis() * ONE_MS_IN_NANOSECONDS + getUniqueNumberForTheSamplerThread(), TimeUnit.NANOSECONDS)
-						.tag(RequestMeasurement.Tags.REQUEST_NAME, sampleResult.getSampleLabel())
-                                                .addField(RequestMeasurement.Fields.ERROR_COUNT, sampleResult.getErrorCount())
-						.addField(RequestMeasurement.Fields.THREAD_NAME, sampleResult.getThreadName())
-						.tag(RequestMeasurement.Tags.RUN_ID, runId)
-						.tag(RequestMeasurement.Tags.TEST_NAME, testName)
-						.addField(RequestMeasurement.Fields.NODE_NAME, nodeName)
-						.addField(RequestMeasurement.Fields.RESPONSE_TIME, sampleResult.getTime()).build();
-				influxDB.write(influxDBConfig.getInfluxDatabase(), influxDBConfig.getInfluxRetentionPolicy(), point);
+			for(SampleResult sampleResult : allSampleResults) {
+				this.getUserMetrics().add(sampleResult);
+				if (null != this.regexForSamplerList && sampleResult.getSampleLabel().matches(this.regexForSamplerList) || this.samplersToFilter.contains(sampleResult.getSampleLabel())) {
+					Point point = Point.measurement(RequestMeasurement.MEASUREMENT_NAME).time(System.currentTimeMillis() * 1000000L + (long)this.getUniqueNumberForTheSamplerThread(), TimeUnit.NANOSECONDS).tag("requestName", sampleResult.getSampleLabel()).addField("errorCount", (long)sampleResult.getErrorCount()).addField("threadName", sampleResult.getThreadName()).tag("runId", this.runId).tag("testName", this.testName).addField("nodeName", this.nodeName).addField("responseTime", sampleResult.getTime()).build();
+					this.influxDB.write(point);
+				}
 			}
 		}
+
 	}
 
 	@Override
@@ -160,6 +165,7 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
 		arguments.addArgument(KEY_SAMPLERS_LIST, ".*");
 		arguments.addArgument(KEY_USE_REGEX_FOR_SAMPLER_LIST, "true");
 		arguments.addArgument(KEY_RECORD_SUB_SAMPLES, "true");
+		arguments.addArgument(KEY_IS_BACKEND_LISTENER_DISABLED, "false");
 		return arguments;
 	}
 
@@ -170,11 +176,17 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
 		randomNumberGenerator = new Random();
 		nodeName = context.getParameter(KEY_NODE_NAME, "Test-Node");
 
+        isBackendListenerDisabled = context.getBooleanParameter(KEY_IS_BACKEND_LISTENER_DISABLED, false);
+        if (isBackendListenerDisabled) {
+            LOGGER.warn("You have set parameter isBackendListenerDisabled to true. Therefore no writing to InfluxDB will be done!");
+            return;
+        }
 
 		setupInfluxClient(context);
+		if (isBackendListenerDisabled) {
+			return;
+		}
 		influxDB.write(
-				influxDBConfig.getInfluxDatabase(),
-				influxDBConfig.getInfluxRetentionPolicy(),
 				Point.measurement(TestStartEndMeasurement.MEASUREMENT_NAME).time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
 						.tag(TestStartEndMeasurement.Tags.TYPE, TestStartEndMeasurement.Values.STARTED)
 						.tag(TestStartEndMeasurement.Tags.NODE_NAME, nodeName)
@@ -193,30 +205,30 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
 
 	@Override
 	public void teardownTest(BackendListenerContext context) throws Exception {
-		LOGGER.info("Shutting down influxDB scheduler...");
-		scheduler.shutdown();
+		if (!isBackendListenerDisabled) {
+			LOGGER.info("Shutting down influxDB scheduler...");
+			scheduler.shutdown();
 
-		addVirtualUsersMetrics(0,0,0,0,JMeterContextService.getThreadCounts().finishedThreads);
-		influxDB.write(
-				influxDBConfig.getInfluxDatabase(),
-				influxDBConfig.getInfluxRetentionPolicy(),
-				Point.measurement(TestStartEndMeasurement.MEASUREMENT_NAME).time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
-						.tag(TestStartEndMeasurement.Tags.TYPE, TestStartEndMeasurement.Values.FINISHED)
-						.tag(TestStartEndMeasurement.Tags.NODE_NAME, nodeName)
-						.tag(TestStartEndMeasurement.Tags.RUN_ID, runId)
-						.tag(TestStartEndMeasurement.Tags.TEST_NAME, testName)
-						.addField(TestStartEndMeasurement.Fields.PLACEHOLDER,"1")
-						.build());
+			addVirtualUsersMetrics(0, 0, 0, 0, JMeterContextService.getThreadCounts().finishedThreads);
+			influxDB.write(
+					Point.measurement(TestStartEndMeasurement.MEASUREMENT_NAME).time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
+							.tag(TestStartEndMeasurement.Tags.TYPE, TestStartEndMeasurement.Values.FINISHED)
+							.tag(TestStartEndMeasurement.Tags.NODE_NAME, nodeName)
+							.tag(TestStartEndMeasurement.Tags.RUN_ID, runId)
+							.tag(TestStartEndMeasurement.Tags.TEST_NAME, testName)
+							.addField(TestStartEndMeasurement.Fields.PLACEHOLDER, "1")
+							.build());
 
-		influxDB.disableBatch();
-		try {
-			scheduler.awaitTermination(30, TimeUnit.SECONDS);
-			LOGGER.info("influxDB scheduler terminated!");
-		} catch (InterruptedException e) {
-			LOGGER.error("Error waiting for end of scheduler");
+			influxDB.disableBatch();
+			try {
+				scheduler.awaitTermination(30, TimeUnit.SECONDS);
+				LOGGER.info("influxDB scheduler terminated!");
+			} catch (InterruptedException e) {
+				LOGGER.error("Error waiting for end of scheduler");
+			}
+
+			samplersToFilter.clear();
 		}
-
-		samplersToFilter.clear();
 		super.teardownTest(context);
 	}
 
@@ -226,7 +238,9 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
 	public void run() {
 		try {
 			ThreadCounts tc = JMeterContextService.getThreadCounts();
-			addVirtualUsersMetrics(getUserMetrics().getMinActiveThreads(), getUserMetrics().getMeanActiveThreads(), getUserMetrics().getMaxActiveThreads(), tc.startedThreads, tc.finishedThreads);
+			if (!isBackendListenerDisabled) {
+				addVirtualUsersMetrics(getUserMetrics().getMinActiveThreads(), getUserMetrics().getMeanActiveThreads(), getUserMetrics().getMaxActiveThreads(), tc.startedThreads, tc.finishedThreads);
+			}
 		} catch (Exception e) {
 			LOGGER.error("Failed writing to influx", e);
 		}
@@ -240,9 +254,34 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
 	 */
 	private void setupInfluxClient(BackendListenerContext context) {
 		influxDBConfig = new InfluxDBConfig(context);
-		influxDB = InfluxDBFactory.connect(influxDBConfig.getInfluxDBURL(), influxDBConfig.getInfluxUser(), influxDBConfig.getInfluxPassword());
-		influxDB.enableBatch(100, 5, TimeUnit.SECONDS);
-		createDatabaseIfNotExistent();
+		try {
+			LOGGER.info("influxDB URL: {}", influxDBConfig.getInfluxDBURL());
+			LOGGER.info("influxDB proxy: {}", influxDBConfig.getInfluxProxy().toString());
+
+			OkHttpClient.Builder okHttpBuilder = new OkHttpClient.Builder()
+					.proxy(influxDBConfig.getInfluxProxy());
+			influxDB = InfluxDBFactory.connect(
+					influxDBConfig.getInfluxDBURL(),
+					influxDBConfig.getInfluxUser(),
+					influxDBConfig.getInfluxPassword(),
+					okHttpBuilder);
+
+			influxDB.setDatabase(influxDBConfig.getInfluxDatabase());
+			influxDB.setRetentionPolicy(influxDBConfig.getInfluxRetentionPolicy());
+
+			Pong pong = influxDB.ping();
+			if (pong.getVersion().equalsIgnoreCase("unknown")) {
+				isBackendListenerDisabled = true;
+				LOGGER.error("Error pinging server. Is it alive? If you wish to run JMeter tests without the backend listener then set property isBackendListenerDisabled to true.");
+			} else {
+				LOGGER.info("Connected to InfluxDB version: {}", pong.getVersion());
+				influxDB.enableBatch(BatchOptions.DEFAULTS.actions(100).flushDuration(5000));
+				createDatabaseIfNotExistent();
+			}
+		} catch (Exception e) {
+			LOGGER.error("Deactivating writing to the InfluxDB due to an error: {}", e.getMessage());
+			isBackendListenerDisabled = true;
+		}
 	}
 
 	/**
@@ -260,9 +299,7 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
 			regexForSamplerList = null;
 			String[] samplers = samplersList.split(SEPARATOR);
 			samplersToFilter = new HashSet<String>();
-			for (String samplerName : samplers) {
-				samplersToFilter.add(samplerName);
-			}
+			Collections.addAll(samplersToFilter, samplers);
 		}
 	}
 
@@ -279,16 +316,28 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
 		builder.tag(VirtualUsersMeasurement.Tags.NODE_NAME, nodeName);
 		builder.tag(VirtualUsersMeasurement.Tags.TEST_NAME, testName);
 		builder.tag(VirtualUsersMeasurement.Tags.RUN_ID, runId);
-		influxDB.write(influxDBConfig.getInfluxDatabase(), influxDBConfig.getInfluxRetentionPolicy(), builder.build());
+		influxDB.write(builder.build());
 	}
 
 	/**
 	 * Creates the configured database in influx if it does not exist yet.
 	 */
 	private void createDatabaseIfNotExistent() {
-		List<String> dbNames = influxDB.describeDatabases();
-		if (!dbNames.contains(influxDBConfig.getInfluxDatabase())) {
-			influxDB.createDatabase(influxDBConfig.getInfluxDatabase());
+		String database = influxDBConfig.getInfluxDatabase();
+
+		// Both describeDatabase and createDatabase are deprecated
+		// As suggested use query to create the database
+		// https://github.com/influxdata/influxdb-java/issues/524
+		QueryResult result = influxDB.query(new Query("SHOW DATABASES"));
+		boolean exists = result.getResults().stream()
+				.filter(r -> r.getSeries() != null)
+				.flatMap(r -> r.getSeries().stream())
+				.filter(s -> s.getValues() != null)
+				.flatMap(s -> s.getValues().stream())
+				.flatMap(List::stream)
+				.anyMatch(database::equals);
+		if (!exists) {
+			influxDB.query(new Query("CREATE DATABASE \"" + database + "\""));
 		}
 	}
 

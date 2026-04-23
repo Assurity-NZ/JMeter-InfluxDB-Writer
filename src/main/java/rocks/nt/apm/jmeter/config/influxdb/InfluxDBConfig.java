@@ -1,7 +1,11 @@
 package rocks.nt.apm.jmeter.config.influxdb;
 
+import java.net.InetSocketAddress;
+import java.net.Proxy;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.jmeter.visualizers.backend.BackendListenerContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Configuration for influxDB.
@@ -10,6 +14,11 @@ import org.apache.jmeter.visualizers.backend.BackendListenerContext;
  *
  */
 public class InfluxDBConfig {
+
+	/**
+	 * Logger.
+	 */
+	private static final Logger LOGGER = LoggerFactory.getLogger(InfluxDBConfig.class);
 
 	/**
 	 * Default database name.
@@ -25,11 +34,16 @@ public class InfluxDBConfig {
 	 * Default http scheme name.
 	 */
 	public static final String DEFAULT_HTTP_SCHEME = "http";
-	
+
 	/**
 	 * Default port.
 	 */
 	public static final int DEFAULT_PORT = 8086;
+
+	/**
+	 * Default proxy.
+	 */
+	public static final Proxy DEFAULT_PROXY = Proxy.NO_PROXY;
 
 	/**
 	 * Config key for database name.
@@ -67,6 +81,11 @@ public class InfluxDBConfig {
 	public static final String KEY_HTTP_SCHEME = "influxHTTPScheme";
 
 	/**
+	 * Config key for proxy.
+	 */
+	public static final String KEY_INFLUX_PROXY = "influxProxy";
+
+	/**
 	 * InfluxDB Host.
 	 */
 	private String influxDBHost;
@@ -101,10 +120,15 @@ public class InfluxDBConfig {
 	 */
 	private String influxHTTPScheme;
 
+	/**
+	 * InfluxDB proxy.
+	 */
+	private Proxy influxProxy;
+
 	public InfluxDBConfig(BackendListenerContext context) {
 		String influxDBHost = context.getParameter(KEY_INFLUX_DB_HOST);
 		if (StringUtils.isEmpty(influxDBHost)) {
-			throw new IllegalArgumentException(KEY_INFLUX_DB_HOST + "must not be empty!");
+			throw new IllegalArgumentException(KEY_INFLUX_DB_HOST + " must not be empty!");
 		}
 		setInfluxDBHost(influxDBHost);
 
@@ -119,7 +143,7 @@ public class InfluxDBConfig {
 
 		String influxDatabase = context.getParameter(KEY_INFLUX_DB_DATABASE);
 		if (StringUtils.isEmpty(influxDatabase)) {
-			throw new IllegalArgumentException(KEY_INFLUX_DB_DATABASE + "must not be empty!");
+			throw new IllegalArgumentException(KEY_INFLUX_DB_DATABASE + " must not be empty!");
 		}
 		setInfluxDatabase(influxDatabase);
 
@@ -135,6 +159,9 @@ public class InfluxDBConfig {
 		}
 		// TODO: no checks but should be only "http" and "https"
 		setInfluxHTTPScheme(influxHTTPScheme);
+
+		String influxProxy = context.getParameter(KEY_INFLUX_PROXY, DEFAULT_PROXY.toString());
+		setInfluxProxy(influxProxy);
 	}
 
 	/**
@@ -242,5 +269,27 @@ public class InfluxDBConfig {
 	 */
 	public void setInfluxDBPort(int influxDBPort) {
 		this.influxDBPort = influxDBPort;
+	}
+
+	/**
+	 * @return the influxProxy
+	 */
+	public Proxy getInfluxProxy() {
+		return influxProxy;
+	}
+
+	/**
+	 * @param influxProxy
+	 *            the influxProxy to set
+	 */
+	public void setInfluxProxy(String influxProxy) {
+		LOGGER.debug("setInfluxProxy - value passed in: |{}|", influxProxy);
+		if (influxProxy != null && !influxProxy.isEmpty()) {
+			String[] hostAndPort = influxProxy.split(":");
+			this.influxProxy = new Proxy(Proxy.Type.HTTP, InetSocketAddress.createUnresolved(hostAndPort[0], Integer.parseInt(hostAndPort[1])));
+		} else {
+			this.influxProxy = Proxy.NO_PROXY;
+		}
+		LOGGER.debug("setInfluxProxy - value set: |{}|", this.influxProxy.address());
 	}
 }

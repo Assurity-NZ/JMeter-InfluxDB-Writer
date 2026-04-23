@@ -1,0 +1,44 @@
+---
+
+name: Build Release Candidate
+
+on:
+  push:
+    branches-ignore: [ 'master' ]
+    paths-ignore:
+      - 'README.md'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Bump and push version tag
+        id: bump_version_tag
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          pre_release_branches: ^(?!main$).*
+          append_to_pre_release_tag: rc
+
+      - name: Build plugin
+        run: |
+          chmod +x gradlew
+          ./gradlew -PprojectVersion=${{ steps.bump_version_tag.outputs.new_version }} fatJar
+
+      - name: Upload plugin artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: JMeter-InfluxDB-Writer-plugin-${{ steps.bump_version_tag.outputs.new_version }}
+          path: build/libs/*-plugin-*.jar
+          retention-days: 7
