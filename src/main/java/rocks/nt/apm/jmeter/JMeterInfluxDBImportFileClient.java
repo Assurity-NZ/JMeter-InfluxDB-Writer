@@ -89,9 +89,9 @@ public class JMeterInfluxDBImportFileClient extends AbstractBackendListenerClien
 			getUserMetrics().add(sampleResult);
 
 			if ((null != regexForSamplerList && sampleResult.getSampleLabel().matches(regexForSamplerList)) || samplersToFilter.contains(sampleResult.getSampleLabel())) {
-				Point point = Point.measurement("requestsRaw").time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
-						.tag("requestName", sampleResult.getSampleLabel()).addField("errorCount", sampleResult.getErrorCount())
-						.addField("responseTime", sampleResult.getTime()).build();
+				Point point = Point.measurement(RequestMeasurement.MEASUREMENT_NAME).time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
+						.tag(RequestMeasurement.Tags.REQUEST_NAME, sampleResult.getSampleLabel()).addField(RequestMeasurement.Fields.ERROR_COUNT, sampleResult.getErrorCount())
+						.addField(RequestMeasurement.Fields.RESPONSE_TIME, sampleResult.getTime()).build();
 				try {
 					exportFileWriter.append(point.lineProtocol());
 					exportFileWriter.newLine();
@@ -187,13 +187,13 @@ public class JMeterInfluxDBImportFileClient extends AbstractBackendListenerClien
 	 */
 	private void parseSamplers(BackendListenerContext context) {
 		samplersList = context.getParameter(KEY_SAMPLERS_LIST, "");
-		samplersToFilter = new HashSet<>();
+		samplersToFilter = new HashSet<String>();
 		if (context.getBooleanParameter(KEY_USE_REGEX_FOR_SAMPLER_LIST, false)) {
 			regexForSamplerList = samplersList;
 		} else {
 			regexForSamplerList = null;
 			String[] samplers = samplersList.split(SEPARATOR);
-			samplersToFilter = new HashSet<>();
+			samplersToFilter = new HashSet<String>();
 			for (String samplerName : samplers) {
 				samplersToFilter.add(samplerName);
 			}
@@ -205,11 +205,11 @@ public class JMeterInfluxDBImportFileClient extends AbstractBackendListenerClien
 	 */
 	private void addVirtualUsersMetrics(int minActiveThreads, int meanActiveThreads, int maxActiveThreads, int startedThreads, int finishedThreads) {
 		Builder builder = Point.measurement(VirtualUsersMeasurement.MEASUREMENT_NAME).time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
-		builder.addField(VirtualUsersMeasurement.Fields.MIN_ACTIVE_THREADS, (long)minActiveThreads);
-		builder.addField(VirtualUsersMeasurement.Fields.MAX_ACTIVE_THREADS, (long)maxActiveThreads);
-		builder.addField(VirtualUsersMeasurement.Fields.MEAN_ACTIVE_THREADS, (long)meanActiveThreads);
-		builder.addField(VirtualUsersMeasurement.Fields.STARTED_THREADS, (long)startedThreads);
-		builder.addField(VirtualUsersMeasurement.Fields.FINISHED_THREADS, (long)finishedThreads);
+		builder.addField(VirtualUsersMeasurement.Fields.MIN_ACTIVE_THREADS, minActiveThreads);
+		builder.addField(VirtualUsersMeasurement.Fields.MAX_ACTIVE_THREADS, maxActiveThreads);
+		builder.addField(VirtualUsersMeasurement.Fields.MEAN_ACTIVE_THREADS, meanActiveThreads);
+		builder.addField(VirtualUsersMeasurement.Fields.STARTED_THREADS, startedThreads);
+		builder.addField(VirtualUsersMeasurement.Fields.FINISHED_THREADS, finishedThreads);
 		try {
 			exportFileWriter.append(builder.build().lineProtocol());
 			exportFileWriter.newLine();
