@@ -11,9 +11,10 @@ import org.influxdb.BatchOptions;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
 import org.influxdb.dto.Point;
+import org.influxdb.dto.Query;
+import org.influxdb.dto.QueryResult;
 import org.influxdb.dto.Point.Builder;
 import org.influxdb.dto.Pong;
-import org.influxdb.dto.Query;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import rocks.nt.apm.jmeter.config.influxdb.InfluxDBConfig;
@@ -312,7 +313,22 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
      * Creates the configured database in influx if it does not exist yet.
      */
     private void createDatabaseIfNotExistent() {
-        influxDB.query(new Query("CREATE DATABASE IF NOT EXISTS \"" + influxDBConfig.getInfluxDatabase() + "\""));
+        String database = influxDBConfig.getInfluxDatabase();
+        
+        // Both describeDatabase and createDatabase are deprecated
+        // As suggestedm use query to create the database
+        // https://github.com/influxdata/influxdb-java/issues/524
+        QueryResult result = influxDB.query(new Query("SHOW DATABASES"));
+        boolean exists = result.getResults().stream()
+                .filter(r -> r.getSeries() != null)
+                .flatMap(r -> r.getSeries().stream())
+                .filter(s -> s.getValues() != null)
+                .flatMap(s -> s.getValues().stream())
+                .flatMap(List::stream)
+                .anyMatch(database::equals);
+        if (!exists) {
+            influxDB.query(new Query("CREATE DATABASE \"" + database + "\""));
+        }
     }
 
     /**

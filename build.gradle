@@ -29,6 +29,7 @@ dependencies {
 
 //create a single Jar with all dependencies
 task fatJar(type: Jar) {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {
         attributes 'Implementation-Title': title,
                    'Implementation-Version': version
