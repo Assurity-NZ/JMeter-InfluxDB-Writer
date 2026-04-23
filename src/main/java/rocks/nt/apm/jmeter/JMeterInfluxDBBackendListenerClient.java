@@ -1,5 +1,16 @@
 package rocks.nt.apm.jmeter;
 
+import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.Random;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.Collections;
+
 import org.apache.jmeter.config.Arguments;
 import org.apache.jmeter.samplers.SampleResult;
 import org.apache.jmeter.threads.JMeterContextService;
@@ -21,11 +32,6 @@ import rocks.nt.apm.jmeter.config.influxdb.InfluxDBConfig;
 import rocks.nt.apm.jmeter.config.influxdb.RequestMeasurement;
 import rocks.nt.apm.jmeter.config.influxdb.TestStartEndMeasurement;
 import rocks.nt.apm.jmeter.config.influxdb.VirtualUsersMeasurement;
-
-import java.util.*;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Backend listener that writes JMeter metrics to influxDB directly.
