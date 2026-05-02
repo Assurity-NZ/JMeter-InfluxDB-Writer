@@ -1,0 +1,52 @@
+
+services:
+  influxdb:
+    build:
+      context: ./performance-tools/src/docker/influxdb
+    image: jmeter-influxdb-writer/influxdb:local
+    environment:
+      INFLUXDB_ADMIN_USER: admin
+      INFLUXDB_ADMIN_PASSWORD: 123qweasd
+      INFLUXDB_HTTP_ENABLED: "true"
+      INFLUXDB_HTTP_LOG_ENABLED: "true"
+      INFLUX_DATABASE: jmeter_metrics
+      INFLUX_JMETER_USER: jmeter
+      INFLUX_JMETER_USER_PWD: 123qweasd
+      INFLUX_GRAFANA_READ_USER: grafana
+      INFLUX_GRAFANA_READ_USER_PWD: 123qweasd
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - influx -username "$${INFLUXDB_ADMIN_USER}" -password "$${INFLUXDB_ADMIN_PASSWORD}" -execute 'SHOW DATABASES' >/dev/null 2>&1 || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks:
+      - e2e
+
+  jmeter-client:
+    build:
+      context: ./performance-tools/src/docker/jmeter-client
+      args:
+        # Make sure to remove "v" in the version
+        # The jmeter-client curl command appends "v" in the URL.
+        INFLUXDB_WRITER_VERSION: "2.0.2-rc.1"   
+    image: jmeter-influxdb-writer/jmeter-client:local
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    volumes:
+      - ./performance-tools/src/docker/jmeter-client/60SecondsSleepWithBackendListener.jmx:/tmp/e2e/60SecondsSleepWithBackendListener.jmx:ro
+      - ./e2e/results:/results
+    environment:
+      REMOTE: "false"
+      JMX_FOLDER: e2e
+      PARAMS: "-n -t 60SecondsSleepWithBackendListener.jmx -l /results/results.jtl -j /results/jmeter.log"
+    restart: "no"
+    networks:
+      - e2e
+
+networks:
+  e2e:
+    driver: bridge
