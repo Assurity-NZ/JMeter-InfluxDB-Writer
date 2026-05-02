@@ -54,13 +54,23 @@ public interface RequestMeasurement {
 		String ERROR_COUNT = "errorCount";
 
 		/**
-		 * Thread name field
-		 */
-		String THREAD_NAME = "threadName";
-
-		/**
 		 * Node name field
 		 */
 		String NODE_NAME = "nodeName";
+
+		/**
+		 * Sent bytes field
+		 */
+		String SEND_BYTES = "sendBytes";
+
+		/**
+		 * Response code field
+		 */
+		String RESPONSE_CODE = "responseCode";
+
+		/**
+		 * Response message field
+		 */
+		String RESPONSE_MESSAGE = "responseMessage";
 	}
 }
