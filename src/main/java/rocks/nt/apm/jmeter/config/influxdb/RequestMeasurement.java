@@ -67,10 +67,5 @@ public interface RequestMeasurement {
 		 * Response code field
 		 */
 		String RESPONSE_CODE = "responseCode";
-
-		/**
-		 * Response message field
-		 */
-		String RESPONSE_MESSAGE = "responseMessage";
 	}
 }

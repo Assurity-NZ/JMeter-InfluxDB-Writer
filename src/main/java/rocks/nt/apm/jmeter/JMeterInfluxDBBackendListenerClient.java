@@ -152,7 +152,6 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
 							.addField(RequestMeasurement.Fields.RESPONSE_TIME, sampleResult.getTime())
 							.addField(RequestMeasurement.Fields.SEND_BYTES, sampleResult.getSentBytes())
 							.addField(RequestMeasurement.Fields.RESPONSE_CODE, sampleResult.getResponseCode())
-							.addField(RequestMeasurement.Fields.RESPONSE_MESSAGE, sampleResult.getResponseMessage())
 							.build();
 					this.influxDB.write(point);
 				}

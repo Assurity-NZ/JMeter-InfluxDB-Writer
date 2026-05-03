@@ -31,7 +31,7 @@ services:
       args:
         # Make sure to remove "v" in the version
         # The jmeter-client curl command appends "v" in the URL.
-        INFLUXDB_WRITER_VERSION: "2.0.2-rc.1"   
+        INFLUXDB_WRITER_VERSION: "2.0.2-rc.4"   
     image: jmeter-influxdb-writer/jmeter-client:local
     depends_on:
       influxdb:

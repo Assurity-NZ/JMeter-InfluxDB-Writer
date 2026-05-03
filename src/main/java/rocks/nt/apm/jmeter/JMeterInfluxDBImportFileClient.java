@@ -95,7 +95,6 @@ public class JMeterInfluxDBImportFileClient extends AbstractBackendListenerClien
 						.addField(RequestMeasurement.Fields.RESPONSE_TIME, sampleResult.getTime())
 						.addField(RequestMeasurement.Fields.SEND_BYTES, sampleResult.getSentBytes())
 						.addField(RequestMeasurement.Fields.RESPONSE_CODE, sampleResult.getResponseCode())
-						.addField(RequestMeasurement.Fields.RESPONSE_MESSAGE, sampleResult.getResponseMessage())
 						.build();
 				try {
 					exportFileWriter.append(point.lineProtocol());
