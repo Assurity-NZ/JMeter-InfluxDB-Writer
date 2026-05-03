@@ -143,11 +143,11 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
 				this.getUserMetrics().add(sampleResult);
 				if (null != this.regexForSamplerList && sampleResult.getSampleLabel().matches(this.regexForSamplerList) || this.samplersToFilter.contains(sampleResult.getSampleLabel())) {
 					Point point = Point.measurement(RequestMeasurement.MEASUREMENT_NAME)
-							.time(System.currentTimeMillis() * 1000000L + (long) this.getUniqueNumberForTheSamplerThread(), TimeUnit.NANOSECONDS)
+							.time(System.currentTimeMillis() * 1000000L + (long)this.getUniqueNumberForTheSamplerThread(), TimeUnit.NANOSECONDS)
 							.tag(RequestMeasurement.Tags.REQUEST_NAME, sampleResult.getSampleLabel())
 							.tag(RequestMeasurement.Tags.RUN_ID, this.runId)
 							.tag(RequestMeasurement.Tags.TEST_NAME, this.testName)
-							.addField(RequestMeasurement.Fields.ERROR_COUNT, (long) sampleResult.getErrorCount())
+							.addField(RequestMeasurement.Fields.ERROR_COUNT, (long)sampleResult.getErrorCount())
 							.addField(RequestMeasurement.Fields.NODE_NAME, this.nodeName)
 							.addField(RequestMeasurement.Fields.RESPONSE_TIME, sampleResult.getTime())
 							.addField(RequestMeasurement.Fields.SEND_BYTES, sampleResult.getSentBytes())
