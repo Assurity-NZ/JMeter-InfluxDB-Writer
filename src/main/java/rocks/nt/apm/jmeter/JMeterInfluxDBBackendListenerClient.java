@@ -142,7 +142,17 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
 			for(SampleResult sampleResult : allSampleResults) {
 				this.getUserMetrics().add(sampleResult);
 				if (null != this.regexForSamplerList && sampleResult.getSampleLabel().matches(this.regexForSamplerList) || this.samplersToFilter.contains(sampleResult.getSampleLabel())) {
-					Point point = Point.measurement(RequestMeasurement.MEASUREMENT_NAME).time(System.currentTimeMillis() * 1000000L + (long)this.getUniqueNumberForTheSamplerThread(), TimeUnit.NANOSECONDS).tag("requestName", sampleResult.getSampleLabel()).addField("errorCount", (long)sampleResult.getErrorCount()).addField("threadName", sampleResult.getThreadName()).tag("runId", this.runId).tag("testName", this.testName).addField("nodeName", this.nodeName).addField("responseTime", sampleResult.getTime()).build();
+					Point point = Point.measurement(RequestMeasurement.MEASUREMENT_NAME)
+							.time(System.currentTimeMillis() * 1000000L + (long)this.getUniqueNumberForTheSamplerThread(), TimeUnit.NANOSECONDS)
+							.tag(RequestMeasurement.Tags.REQUEST_NAME, sampleResult.getSampleLabel())
+							.tag(RequestMeasurement.Tags.RUN_ID, this.runId)
+							.tag(RequestMeasurement.Tags.TEST_NAME, this.testName)
+							.addField(RequestMeasurement.Fields.ERROR_COUNT, (long)sampleResult.getErrorCount())
+							.addField(RequestMeasurement.Fields.NODE_NAME, this.nodeName)
+							.addField(RequestMeasurement.Fields.RESPONSE_TIME, sampleResult.getTime())
+							.addField(RequestMeasurement.Fields.SEND_BYTES, sampleResult.getSentBytes())
+							.addField(RequestMeasurement.Fields.RESPONSE_CODE, sampleResult.getResponseCode())
+							.build();
 					this.influxDB.write(point);
 				}
 			}

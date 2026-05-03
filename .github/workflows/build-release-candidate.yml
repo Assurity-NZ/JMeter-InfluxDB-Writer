@@ -36,9 +36,13 @@ jobs:
           chmod +x gradlew
           ./gradlew -PprojectVersion=${{ steps.bump_version_tag.outputs.new_version }} fatJar
 
-      - name: Upload plugin artifact
-        uses: actions/upload-artifact@v7
+      - name: Create GitHub Pre-Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: JMeter-InfluxDB-Writer-plugin-${{ steps.bump_version_tag.outputs.new_version }}
-          path: build/libs/*-plugin-*.jar
-          retention-days: 7
+          tag_name: ${{ steps.bump_version_tag.outputs.new_tag }}
+          name: Release ${{ steps.bump_version_tag.outputs.new_tag }}
+          body: ${{ steps.bump_version_tag.outputs.changelog }}
+          files: build/libs/*-plugin-*.jar
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
