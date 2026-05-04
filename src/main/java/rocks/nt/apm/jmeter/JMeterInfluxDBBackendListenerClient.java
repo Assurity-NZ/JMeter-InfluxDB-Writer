@@ -147,11 +147,14 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
 							.tag(RequestMeasurement.Tags.REQUEST_NAME, sampleResult.getSampleLabel())
 							.tag(RequestMeasurement.Tags.RUN_ID, this.runId)
 							.tag(RequestMeasurement.Tags.TEST_NAME, this.testName)
+							.tag(RequestMeasurement.Tags.RESPONSE_CODE, sampleResult.getResponseCode())
 							.addField(RequestMeasurement.Fields.ERROR_COUNT, (long)sampleResult.getErrorCount())
 							.addField(RequestMeasurement.Fields.NODE_NAME, this.nodeName)
 							.addField(RequestMeasurement.Fields.RESPONSE_TIME, sampleResult.getTime())
 							.addField(RequestMeasurement.Fields.SEND_BYTES, sampleResult.getSentBytes())
-							.addField(RequestMeasurement.Fields.RESPONSE_CODE, sampleResult.getResponseCode())
+							.addField(RequestMeasurement.Fields.CONNECT, sampleResult.getConnectTime())
+							.addField(RequestMeasurement.Fields.LATENCY, sampleResult.getLatency())
+							.addField(RequestMeasurement.Fields.BYTES, sampleResult.getBytesAsLong())
 							.build();
 					this.influxDB.write(point);
 				}
