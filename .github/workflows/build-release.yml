@@ -43,3 +43,17 @@ jobs:
           files: build/libs/*-plugin-*.jar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: delete-rc-releases
+        uses: dev-drprasad/delete-older-releases@v0.3.4
+        if: ${{ github.ref == 'refs/heads/main' }}
+        with:
+          keep_latest: 0
+          delete_tag_pattern: rc
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete RC Tags
+        if: ${{ github.ref == 'refs/heads/main' }}
+        run: |
+          git push --delete origin $(git tag -l '*-rc*') || echo "no rc tags to delete"

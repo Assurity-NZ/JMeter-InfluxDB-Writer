@@ -25,20 +25,25 @@ public interface RequestMeasurement {
 		 */
 		String REQUEST_NAME = "requestName";
 
-		/** 
+		/**
 		 * Influx DB tag for a unique identifier for each execution(aka 'run') of a load test.
-		 */  
+		 */
 		String RUN_ID = "runId";
 
-		/** 
+		/**
 		 * Test name field
-		 */  
+		 */
 		String TEST_NAME = "testName";
+
+		/**
+		 * Response code tag.
+		 */
+		String RESPONSE_CODE = "responseCode";
 	}
 
 	/**
 	 * Fields.
-	 * 
+	 *
 	 * @author Alexander Wert
 	 *
 	 */
@@ -64,8 +69,18 @@ public interface RequestMeasurement {
 		String SEND_BYTES = "sendBytes";
 
 		/**
-		 * Response code field
+		 * Connect time field (ms).
 		 */
-		String RESPONSE_CODE = "responseCode";
+		String CONNECT = "connect";
+
+		/**
+		 * Latency field (ms).
+		 */
+		String LATENCY = "latency";
+
+		/**
+		 * Received bytes field.
+		 */
+		String BYTES = "bytes";
 	}
 }

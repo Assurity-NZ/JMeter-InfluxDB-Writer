@@ -91,10 +91,13 @@ public class JMeterInfluxDBImportFileClient extends AbstractBackendListenerClien
 			if ((null != regexForSamplerList && sampleResult.getSampleLabel().matches(regexForSamplerList)) || samplersToFilter.contains(sampleResult.getSampleLabel())) {
 				Point point = Point.measurement(RequestMeasurement.MEASUREMENT_NAME).time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
 						.tag(RequestMeasurement.Tags.REQUEST_NAME, sampleResult.getSampleLabel())
+						.tag(RequestMeasurement.Tags.RESPONSE_CODE, sampleResult.getResponseCode())
 						.addField(RequestMeasurement.Fields.ERROR_COUNT, (long)sampleResult.getErrorCount())
 						.addField(RequestMeasurement.Fields.RESPONSE_TIME, sampleResult.getTime())
 						.addField(RequestMeasurement.Fields.SEND_BYTES, sampleResult.getSentBytes())
-						.addField(RequestMeasurement.Fields.RESPONSE_CODE, sampleResult.getResponseCode())
+						.addField(RequestMeasurement.Fields.CONNECT, sampleResult.getConnectTime())
+						.addField(RequestMeasurement.Fields.LATENCY, sampleResult.getLatency())
+						.addField(RequestMeasurement.Fields.BYTES, sampleResult.getBytesAsLong())
 						.build();
 				try {
 					exportFileWriter.append(point.lineProtocol());
