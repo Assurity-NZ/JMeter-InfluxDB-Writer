@@ -53,7 +53,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-
       - name: Delete RC Tags
         if: ${{ github.ref == 'refs/heads/main' }}
         run: |
