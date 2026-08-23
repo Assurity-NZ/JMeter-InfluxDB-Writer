@@ -171,6 +171,7 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
 		arguments.addArgument(KEY_RUN_ID, "R001");
 		arguments.addArgument(InfluxDBConfig.KEY_INFLUX_DB_HOST, "localhost");
 		arguments.addArgument(InfluxDBConfig.KEY_INFLUX_DB_PORT, Integer.toString(InfluxDBConfig.DEFAULT_PORT));
+		arguments.addArgument(InfluxDBConfig.KEY_INFLUX_DB_CONNECT_TIMEOUT, Integer.toString(InfluxDBConfig.DEFAULT_CONNECT_TIMEOUT_MS));
 		arguments.addArgument(InfluxDBConfig.KEY_INFLUX_DB_USER, "");
 		arguments.addArgument(InfluxDBConfig.KEY_INFLUX_DB_PASSWORD, "");
 		arguments.addArgument(InfluxDBConfig.KEY_INFLUX_DB_DATABASE, InfluxDBConfig.DEFAULT_DATABASE);
@@ -270,9 +271,11 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
 		try {
 			LOGGER.info("influxDB URL: {}", influxDBConfig.getInfluxDBURL());
 			LOGGER.info("influxDB proxy: {}", influxDBConfig.getInfluxProxy().toString());
+			LOGGER.info("influxDB timeouts (ms) - connect: {}", influxDBConfig.getConnectTimeout());
 
 			OkHttpClient.Builder okHttpBuilder = new OkHttpClient.Builder()
-					.proxy(influxDBConfig.getInfluxProxy());
+					.proxy(influxDBConfig.getInfluxProxy())
+					.connectTimeout(influxDBConfig.getConnectTimeout(), TimeUnit.MILLISECONDS);
 			influxDB = InfluxDBFactory.connect(
 					influxDBConfig.getInfluxDBURL(),
 					influxDBConfig.getInfluxUser(),

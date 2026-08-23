@@ -41,6 +41,11 @@ public class InfluxDBConfig {
 	public static final int DEFAULT_PORT = 8086;
 
 	/**
+	 * Default connect timeout in milliseconds (OkHttp default).
+	 */
+	public static final int DEFAULT_CONNECT_TIMEOUT_MS = 10000;
+
+	/**
 	 * Default proxy.
 	 */
 	public static final Proxy DEFAULT_PROXY = Proxy.NO_PROXY;
@@ -65,6 +70,11 @@ public class InfluxDBConfig {
 	 */
 	public static final String KEY_INFLUX_DB_PORT = "influxDBPort";
 
+	/**
+	 * Config key for connect timeout (milliseconds).
+	 */
+	public static final String KEY_INFLUX_DB_CONNECT_TIMEOUT = "influxDBConnectTimeout";
+	
 	/**
 	 * Config key for host.
 	 */
@@ -114,6 +124,11 @@ public class InfluxDBConfig {
 	 * InfluxDB Port.
 	 */
 	private int influxDBPort;
+
+	/**
+	 * InfluxDB connect timeout in milliseconds.
+	 */
+	private int connectTimeout;
 	
 	/**
 	 * InfluxDB database retention policy.
@@ -135,6 +150,9 @@ public class InfluxDBConfig {
 		int influxDBPort = context.getIntParameter(KEY_INFLUX_DB_PORT, InfluxDBConfig.DEFAULT_PORT);
 		setInfluxDBPort(influxDBPort);
 
+		setConnectTimeout(sanitiseTimeout(KEY_INFLUX_DB_CONNECT_TIMEOUT,
+				context.getIntParameter(KEY_INFLUX_DB_CONNECT_TIMEOUT, DEFAULT_CONNECT_TIMEOUT_MS), DEFAULT_CONNECT_TIMEOUT_MS));
+		
 		String influxUser = context.getParameter(KEY_INFLUX_DB_USER);
 		setInfluxUser(influxUser);
 
@@ -162,6 +180,26 @@ public class InfluxDBConfig {
 
 		String influxProxy = context.getParameter(KEY_INFLUX_PROXY, DEFAULT_PROXY.toString());
 		setInfluxProxy(influxProxy);
+	}
+
+	/**
+	 * Falls back to the default when a timeout is negative, since OkHttp rejects
+	 * negative values and this config is built outside the client's try/catch.
+	 *
+	 * @param key
+	 *            config key, for logging.
+	 * @param value
+	 *            configured value in milliseconds.
+	 * @param defaultValue
+	 *            value to fall back to.
+	 * @return a non-negative timeout in milliseconds.
+	 */
+	private int sanitiseTimeout(String key, int value, int defaultValue) {
+		if (value < 0) {
+			LOGGER.warn("{} must not be negative (was {}); falling back to {} ms", key, value, defaultValue);
+			return defaultValue;
+		}
+		return value;
 	}
 
 	/**
@@ -291,5 +329,20 @@ public class InfluxDBConfig {
 			this.influxProxy = Proxy.NO_PROXY;
 		}
 		LOGGER.debug("setInfluxProxy - value set: |{}|", this.influxProxy.address());
+	}
+
+	/**
+	 * @return the connectTimeout in milliseconds
+	 */
+	public int getConnectTimeout() {
+		return connectTimeout;
+	}
+
+	/**
+	 * @param connectTimeout
+	 *            the connectTimeout to set, in milliseconds
+	 */
+	public void setConnectTimeout(int connectTimeout) {
+		this.connectTimeout = connectTimeout;
 	}
 }
