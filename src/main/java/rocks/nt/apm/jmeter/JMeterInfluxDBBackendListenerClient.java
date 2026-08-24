@@ -281,11 +281,12 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
 					influxDBConfig.getInfluxUser(),
 					influxDBConfig.getInfluxPassword(),
 					okHttpBuilder);
-
+			LOGGER.info("DEBUG: 1");
 			influxDB.setDatabase(influxDBConfig.getInfluxDatabase());
 			influxDB.setRetentionPolicy(influxDBConfig.getInfluxRetentionPolicy());
-
+			LOGGER.info("DEBUG: 2");
 			Pong pong = influxDB.ping();
+			LOGGER.info("DEBUG: 3");
 			if (pong.getVersion().equalsIgnoreCase("unknown")) {
 				isBackendListenerDisabled = true;
 				LOGGER.error("Error pinging server. Is it alive? If you wish to run JMeter tests without the backend listener then set property isBackendListenerDisabled to true.");
@@ -295,6 +296,7 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
 				createDatabaseIfNotExistent();
 			}
 		} catch (Exception e) {
+			LOGGER.info("DEBUG: 4");
 			LOGGER.error("Deactivating writing to the InfluxDB due to an error: {}", e.getMessage());
 			isBackendListenerDisabled = true;
 		}
