@@ -46,6 +46,12 @@ public class InfluxDBConfig {
 	public static final int DEFAULT_CONNECT_TIMEOUT_MS = 10000;
 
 	/**
+	 * Default call timeout in milliseconds. Bounds a whole call - DNS, connect,
+	 * retries, request write and response read - which OkHttp leaves unbounded.
+	 */
+	public static final int DEFAULT_CALL_TIMEOUT_MS = 30000;
+
+	/**
 	 * Default proxy.
 	 */
 	public static final Proxy DEFAULT_PROXY = Proxy.NO_PROXY;
@@ -74,6 +80,11 @@ public class InfluxDBConfig {
 	 * Config key for connect timeout (milliseconds).
 	 */
 	public static final String KEY_INFLUX_DB_CONNECT_TIMEOUT = "influxDBConnectTimeout";
+
+	/**
+	 * Config key for call timeout (milliseconds).
+	 */
+	public static final String KEY_INFLUX_DB_CALL_TIMEOUT = "influxDBCallTimeout";
 	
 	/**
 	 * Config key for host.
@@ -129,6 +140,11 @@ public class InfluxDBConfig {
 	 * InfluxDB connect timeout in milliseconds.
 	 */
 	private int connectTimeout;
+
+	/**
+	 * InfluxDB call timeout in milliseconds.
+	 */
+	private int callTimeout;
 	
 	/**
 	 * InfluxDB database retention policy.
@@ -152,6 +168,9 @@ public class InfluxDBConfig {
 
 		setConnectTimeout(sanitiseTimeout(KEY_INFLUX_DB_CONNECT_TIMEOUT,
 				context.getIntParameter(KEY_INFLUX_DB_CONNECT_TIMEOUT, DEFAULT_CONNECT_TIMEOUT_MS), DEFAULT_CONNECT_TIMEOUT_MS));
+
+		setCallTimeout(sanitiseTimeout(KEY_INFLUX_DB_CALL_TIMEOUT,
+				context.getIntParameter(KEY_INFLUX_DB_CALL_TIMEOUT, DEFAULT_CALL_TIMEOUT_MS), DEFAULT_CALL_TIMEOUT_MS));
 		
 		String influxUser = context.getParameter(KEY_INFLUX_DB_USER);
 		setInfluxUser(influxUser);
@@ -183,8 +202,10 @@ public class InfluxDBConfig {
 	}
 
 	/**
-	 * Falls back to the default when a timeout is negative, since OkHttp rejects
-	 * negative values and this config is built outside the client's try/catch.
+	 * Falls back to the default when a timeout is not positive. OkHttp rejects
+	 * negative values, and this config is built outside the client's try/catch;
+	 * it reads zero as "no timeout", which is the hang these timeouts exist to
+	 * prevent.
 	 *
 	 * @param key
 	 *            config key, for logging.
@@ -192,11 +213,11 @@ public class InfluxDBConfig {
 	 *            configured value in milliseconds.
 	 * @param defaultValue
 	 *            value to fall back to.
-	 * @return a non-negative timeout in milliseconds.
+	 * @return a positive timeout in milliseconds.
 	 */
 	private int sanitiseTimeout(String key, int value, int defaultValue) {
-		if (value < 0) {
-			LOGGER.warn("{} must not be negative (was {}); falling back to {} ms", key, value, defaultValue);
+		if (value <= 0) {
+			LOGGER.warn("{} must be positive (was {}); falling back to {} ms", key, value, defaultValue);
 			return defaultValue;
 		}
 		return value;
@@ -344,5 +365,20 @@ public class InfluxDBConfig {
 	 */
 	public void setConnectTimeout(int connectTimeout) {
 		this.connectTimeout = connectTimeout;
+	}
+
+	/**
+	 * @return the callTimeout in milliseconds
+	 */
+	public int getCallTimeout() {
+		return callTimeout;
+	}
+
+	/**
+	 * @param callTimeout
+	 *            the callTimeout to set, in milliseconds
+	 */
+	public void setCallTimeout(int callTimeout) {
+		this.callTimeout = callTimeout;
 	}
 }
