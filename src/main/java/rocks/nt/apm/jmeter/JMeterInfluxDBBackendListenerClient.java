@@ -302,7 +302,6 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
 				createDatabaseIfNotExistent();
 			}
 		} catch (Exception e) {
-			LOGGER.info("DEBUG: 4");
 			LOGGER.error("Deactivating writing to the InfluxDB due to an error: {}", e.getMessage());
 			isBackendListenerDisabled = true;
 			closeInfluxDB();
