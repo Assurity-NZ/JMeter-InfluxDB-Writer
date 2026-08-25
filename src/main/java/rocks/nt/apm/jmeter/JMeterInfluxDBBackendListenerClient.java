@@ -171,6 +171,8 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
 		arguments.addArgument(KEY_RUN_ID, "R001");
 		arguments.addArgument(InfluxDBConfig.KEY_INFLUX_DB_HOST, "localhost");
 		arguments.addArgument(InfluxDBConfig.KEY_INFLUX_DB_PORT, Integer.toString(InfluxDBConfig.DEFAULT_PORT));
+		arguments.addArgument(InfluxDBConfig.KEY_INFLUX_DB_CONNECT_TIMEOUT, Integer.toString(InfluxDBConfig.DEFAULT_CONNECT_TIMEOUT_MS));
+		arguments.addArgument(InfluxDBConfig.KEY_INFLUX_DB_CALL_TIMEOUT, Integer.toString(InfluxDBConfig.DEFAULT_CALL_TIMEOUT_MS));
 		arguments.addArgument(InfluxDBConfig.KEY_INFLUX_DB_USER, "");
 		arguments.addArgument(InfluxDBConfig.KEY_INFLUX_DB_PASSWORD, "");
 		arguments.addArgument(InfluxDBConfig.KEY_INFLUX_DB_DATABASE, InfluxDBConfig.DEFAULT_DATABASE);
@@ -221,18 +223,23 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
 		if (!isBackendListenerDisabled) {
 			LOGGER.info("Shutting down influxDB scheduler...");
 			scheduler.shutdown();
+			
+			try {
+				addVirtualUsersMetrics(0, 0, 0, 0, JMeterContextService.getThreadCounts().finishedThreads);
+				influxDB.write(
+						Point.measurement(TestStartEndMeasurement.MEASUREMENT_NAME).time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
+								.tag(TestStartEndMeasurement.Tags.TYPE, TestStartEndMeasurement.Values.FINISHED)
+								.tag(TestStartEndMeasurement.Tags.NODE_NAME, nodeName)
+								.tag(TestStartEndMeasurement.Tags.RUN_ID, runId)
+								.tag(TestStartEndMeasurement.Tags.TEST_NAME, testName)
+								.addField(TestStartEndMeasurement.Fields.PLACEHOLDER, "1")
+								.build());
+			} catch (Exception e) {
+				LOGGER.error("Failed writing the final metrics to influx", e);
+			}
 
-			addVirtualUsersMetrics(0, 0, 0, 0, JMeterContextService.getThreadCounts().finishedThreads);
-			influxDB.write(
-					Point.measurement(TestStartEndMeasurement.MEASUREMENT_NAME).time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
-							.tag(TestStartEndMeasurement.Tags.TYPE, TestStartEndMeasurement.Values.FINISHED)
-							.tag(TestStartEndMeasurement.Tags.NODE_NAME, nodeName)
-							.tag(TestStartEndMeasurement.Tags.RUN_ID, runId)
-							.tag(TestStartEndMeasurement.Tags.TEST_NAME, testName)
-							.addField(TestStartEndMeasurement.Fields.PLACEHOLDER, "1")
-							.build());
+			closeInfluxDB();
 
-			influxDB.disableBatch();
 			try {
 				scheduler.awaitTermination(30, TimeUnit.SECONDS);
 				LOGGER.info("influxDB scheduler terminated!");
@@ -270,18 +277,21 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
 		try {
 			LOGGER.info("influxDB URL: {}", influxDBConfig.getInfluxDBURL());
 			LOGGER.info("influxDB proxy: {}", influxDBConfig.getInfluxProxy().toString());
-
+			LOGGER.info("influxDB timeouts (ms) - connect: {}, call: {}",
+					influxDBConfig.getConnectTimeout(), influxDBConfig.getCallTimeout());
+			
 			OkHttpClient.Builder okHttpBuilder = new OkHttpClient.Builder()
-					.proxy(influxDBConfig.getInfluxProxy());
+					.proxy(influxDBConfig.getInfluxProxy())
+					.connectTimeout(influxDBConfig.getConnectTimeout(), TimeUnit.MILLISECONDS)
+					.callTimeout(influxDBConfig.getCallTimeout(), TimeUnit.MILLISECONDS);
+
 			influxDB = InfluxDBFactory.connect(
 					influxDBConfig.getInfluxDBURL(),
 					influxDBConfig.getInfluxUser(),
 					influxDBConfig.getInfluxPassword(),
 					okHttpBuilder);
-
 			influxDB.setDatabase(influxDBConfig.getInfluxDatabase());
 			influxDB.setRetentionPolicy(influxDBConfig.getInfluxRetentionPolicy());
-
 			Pong pong = influxDB.ping();
 			if (pong.getVersion().equalsIgnoreCase("unknown")) {
 				isBackendListenerDisabled = true;
@@ -294,6 +304,23 @@ public class JMeterInfluxDBBackendListenerClient extends AbstractBackendListener
 		} catch (Exception e) {
 			LOGGER.error("Deactivating writing to the InfluxDB due to an error: {}", e.getMessage());
 			isBackendListenerDisabled = true;
+			closeInfluxDB();
+		}
+	}
+
+	/**
+	 * Releases the influxDB client, shutting down the batch processor scheduler and
+	 * the HTTP dispatcher. Both run on non-daemon threads that would otherwise keep
+	 * the JVM alive after the test ends.
+	 */
+	private void closeInfluxDB() {
+		if (influxDB == null) {
+			return;
+		}
+		try {
+			influxDB.close();
+		} catch (Exception e) {
+			LOGGER.error("Failed closing the influxDB client", e);
 		}
 	}
 
